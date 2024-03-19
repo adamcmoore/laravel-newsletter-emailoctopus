@@ -33,40 +33,56 @@ class EmailOctopusDriver implements Driver
 
     public function subscribe(
         string $email,
-        array $properties = [],
+        array $fields = [],
         string $listName = '',
-        array $options = []
+        array $tags = []
     ) {
         $list = $this->lists->findByName($listName);
 
-        $options = $this->getSubscriptionOptions($email, $properties, $options);
+        $options = $this->getSubscriptionOptions($email, $fields, $tags);
 
 		return $this->emailOctopus->lists()->createContact($list->getId(), $options);
     }
 
-    public function subscribePending(string $email, array $properties = [], string $listName = '', array $options = [])
-    {
-        $options = array_merge($options, ['status' => 'pending']);
+    public function subscribePending(
+		string $email,
+		array $fields = [],
+		string $listName = '',
+		array $tags = []
+	) {
+		$list = $this->lists->findByName($listName);
 
-        return $this->subscribe($email, $properties, $listName, $options);
-    }
+		$options = $this->getSubscriptionOptions($email, $fields, $tags);
+
+		if ($this->isDoubleOptin($listName)) {
+			$options['status'] = 'PENDING';
+		}
+
+		return $this->emailOctopus->lists()->createContact($list->getId(), $options);
+	}
 
     public function subscribeOrUpdate(
         string $email,
-        array $properties = [],
+        array $fields = [],
         string $listName = '',
-        array $options = []
+        array $tags = []
     ) {
         $list = $this->lists->findByName($listName);
 
-        $options = $this->getSubscriptionOptions($email, $properties, $options);
+        $options = $this->getSubscriptionOptions($email, $fields, $tags);
 
-		return $this->emailOctopus->lists()->updateContact($list->getId(), $this->getSubscriberHash($email), $options);
+		if ($this->hasMember($email, $listName)) {
+			return $this->emailOctopus->lists()->updateContact($list->getId(), $this->getSubscriberHash($email), $options);
+		} else {
+			return $this->emailOctopus->lists()->createContact($list->getId(), $options);
+		}
     }
 
     public function getMembers(string $listName = '', array $parameters = [])
     {
         $list = $this->lists->findByName($listName);
+
+		$parameters = array_merge($parameters, ['limit' => 100]);
 
         return $this->emailOctopus->lists()->getAllContacts($list->getId(), $parameters);
     }
@@ -120,18 +136,31 @@ class EmailOctopusDriver implements Driver
         return true;
     }
 
-    protected function getSubscriptionOptions(string $email, array $mergeFields, array $options): array
+
+	public function getList(string $listName): array
+	{
+		$list = $this->lists->findByName($listName);
+
+		return $this->emailOctopus->lists()->get($list->getId());
+	}
+
+
+	public function isDoubleOptin(string $listName): bool
+	{
+		$list = $this->getList($listName);
+
+		return (bool) $list['double_opt_in'];
+	}
+
+
+    protected function getSubscriptionOptions(string $email, array $fields, array $tags): array
     {
-        $defaultOptions = [
+        return [
             'email_address' => $email,
             'status' => 'SUBSCRIBED',
+            'tags' => $tags,
+            'fields' => $fields,
         ];
-
-        if (count($mergeFields)) {
-            $defaultOptions['merge_fields'] = $mergeFields;
-        }
-
-		return array_merge($defaultOptions, $options);
     }
 
     protected function getSubscriberHash(string $email): string
