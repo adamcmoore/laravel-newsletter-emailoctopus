@@ -28,3 +28,9 @@ return [
 ```
 
 Documentation for full usage can be found on the [Spatie Newsletter](https://github.com/spatie/laravel-newsletter) GitHub page.
+
+
+## Testing
+Clone `tests/.env.example` to `tests/.env` and set the required config values.
+
+For all tests to pass you should ensure your testing list has Double opt-in enabled.
