@@ -3,6 +3,7 @@ namespace AcMoore\LaravelNewsletter\Tests;
 
 
 use AcMoore\LaravelNewsletter\Drivers\EmailOctopusDriver;
+use AcMoore\LaravelNewsletter\Drivers\EmailOctopusRequestException;
 use Illuminate\Support\Collection;
 use Spatie\Newsletter\Support\Lists;
 
@@ -230,4 +231,23 @@ class EmailOctopusDriverTest extends TestCase
 		$this->assertTrue($list->has($email_address1));
 		$this->assertTrue($list->has($email_address2));
     }
+
+
+	public function testEmailOctopusResponseExceptions(): void
+	{
+		$newsletter = $this->makeNewsletter();
+		$email_address = uniqid();
+
+		$caught_ex = null;
+
+		try {
+			$newsletter->subscribe($email_address);
+		} catch (EmailOctopusRequestException $ex) {
+			$caught_ex = $ex;
+		}
+
+		$this->assertNotNull($caught_ex);
+		$this->assertNotNull($caught_ex->getEmailOctopusCode());
+		$this->assertEquals(EmailOctopusRequestException::INVALID_PARAMETERS, $caught_ex->getEmailOctopusCode());
+	}
 }
